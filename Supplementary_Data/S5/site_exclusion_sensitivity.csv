@@ -1,0 +1,4 @@
+﻿Scheme,Events,Sites,Paired_Events,Discordant,Discordance_Pct,Downstream_Sites,Downstream_Site_Equal_ShockL,Below5_Events,Below5_Event_Pct,Below3_Events,Below3_Event_Pct,Below2_Events,Below2_Event_Pct
+All_sites,2548,66,1903,781,41.0404624277,5,0.91013700844,256,10.0470957614,84,3.2967032967,56,2.1978021978
+Without_Jiagaiqiao,2512,65,1877,770,41.0229088972,4,0.941772883033,221,8.79777070064,53,2.10987261146,27,1.07484076433
+Without_two_influential_sites,2475,64,1852,762,41.1447084233,3,0.967818617787,191,7.71717171717,42,1.69696969697,20,0.808080808081

@@ -1,0 +1,85 @@
+Supplementary_Data,File,Description,Data_Rows
+S1,S1/Evaluation_Details_Report.csv,Site-level DO reconstruction metrics across data splits. The 2025 holdout is Test(25).,198
+S2,S2/DO_Development_Loss_History.csv,Development-set training and validation MSE for each epoch in Figure S5.,20
+S2,S2/source_pointwise.csv,"2025 pointwise error summaries for all, event and non-event dates, and Jiagaiqiao.",4
+S2,S2/candidate_availability.csv,Available candidate masking windows and selection support.,528
+S2,S2/selected_windows.csv,Selected contiguous masking windows and their source support.,13883
+S2,S2/masked_point_predictions.csv,Date-level held-out DO and predictions under contiguous masking.,106052
+S2,S2/metric_summary.csv,"Pointwise error metrics by masking design, gap length and evaluation group.",72
+S2,S2/low_DO_classification.csv,Low-DO classification counts and metrics by threshold and design.,216
+S2,S2/paired_baseline_comparison.csv,Same-date error comparisons between masked and baseline predictions.,48
+S2,S2/site_block_intervals.csv,Site-block uncertainty intervals for masking metrics.,72
+S2,S2/site_metrics.csv,Masking validation metrics by site.,4677
+S2,S2/window_metrics.csv,Masking validation metrics by selected window.,13883
+S2,S2/gap_depth_metrics.csv,Masking validation metrics by within-gap depth.,972
+S2,S2/reload_prediction_checks.csv,Agreement checks for reloaded model predictions.,66
+S2,S2/real_DO_gap_summary.csv,Genuine missing DO gaps summarised by site and gap length.,5
+S2,S2/real_DO_gap_segments.csv,"Start, end and length of genuine DO gap segments.",2830
+S2,S2/daily_observation_source_summary.csv,Counts of daily observed and reconstructed DO by group.,66
+S2,S2/low_DO_gap_source_audit.csv,Day-level low-DO provenance and containing gap length.,1717
+S2,S2/low_DO_gap_source_summary.csv,Low-DO day counts by source and gap length.,3
+S2,S2/low_DO_event_source_summary.csv,Event-level low-DO provenance summaries.,3
+S2,S2/source_gap_distribution.csv,Distribution of genuine gaps used in supplementary validation figures.,6
+S3,S3/sensitivity_summary.csv,Antecedent-reference scenario summaries.,998
+S3,S3/scenario_definitions.csv,Definitions and coverage rules for antecedent-reference scenarios.,8
+S3,S3/scenario_event_results.csv,Event-level response ratios and eligibility by scenario.,40768
+S3,S3/antecedent_windows.csv,Event-specific antecedent dates and reference support.,7644
+S3,S3/antecedent_daily_trace.csv,"Date-level antecedent values, selection and observation provenance.",53508
+S3,S3/eligibility_counts.csv,Counts of events eligible under each reference scenario.,54
+S3,S3/event_classification_transitions.csv,Changes in response classification across scenarios.,30968
+S3,S3/fixed_events.csv,Fixed event registry and completed-series response metrics.,2548
+S3,S3/large_ratio_diagnostics.csv,Diagnostics for large antecedent-reference ratios.,147
+S3,S3/matched_comparisons.csv,Matched-event comparisons across reference scenarios.,616
+S3,S3/near_zero_reference_diagnostics.csv,Diagnostics for near-zero reference values.,80
+S3,S3/original_observation_support.csv,Original observation support across scenarios.,7
+S3,S3/sample_composition.csv,Composition of scenario-specific analysis samples.,192
+S3,S3/site_input_checks.csv,Site-level checks for the reference sensitivity inputs.,66
+S4,S4/event_selection_and_intensity.csv,"Event-level slope eligibility, exposure intensity and observation support.",2548
+S4,S4/required_post_dates.csv,"Required post-event dates, DO sources and availability.",12740
+S4,S4/categorical_comparisons.csv,Categorical summaries of slope-eligible and excluded events.,100
+S4,S4/numeric_comparisons.csv,Numerical comparisons of slope-eligible and excluded events.,360
+S4,S4/eligible_slope_by_post_observation_support.csv,Slope summaries stratified by post-event observation support.,2
+S4,S4/observation_restricted_slope_contrasts.csv,Four adjusted restricted-cohort slope contrasts for Figure 6d.,4
+S4,S4/restricted_slope_model_diagnostics.csv,Fitting attempts and reliability checks for the restricted slope models.,10
+S4,S4/restricted_slope_model_membership.csv,Site-event membership of the restricted slope models.,1723
+S4,S4/intensity_day_trace.csv,Daily values contributing to exposure intensity.,19545
+S4,S4/original_hazard_components.csv,Original heatwave and high-flow components of study events.,2919
+S4,S4/site_type_counts.csv,"Event counts by site, type and slope eligibility.",454
+S4,S4/site_input_checks.csv,Checks on site-level inputs for slope eligibility and intensity.,66
+S5,S5/all_observed_low_days.csv,Original low-DO dates at Jiagaiqiao.,543
+S5,S5/basin_low_DO_source_counts.csv,Basin-wide low-DO counts by source.,4
+S5,S5/daily_low_runs.csv,Consecutive daily low-DO runs.,190
+S5,S5/daily_site_audit.csv,"Daily Jiagaiqiao DO, environmental variables and provenance.",1826
+S5,S5/event_observed_low_days.csv,Original low-DO dates within registered events.,105
+S5,S5/evidence_status.csv,Availability of source and environmental evidence.,5
+S5,S5/low_DO_day_summary.csv,Summary of low-DO dates and observation support.,18
+S5,S5/monthly_observation_summary.csv,Monthly original DO and water-quality coverage.,60
+S5,S5/observed_chemistry_by_DO_group.csv,Observed chemistry stratified by DO group.,48
+S5,S5/observed_DO_associations.csv,Pairwise associations of observed DO with available variables.,16
+S5,S5/provenance_checks.csv,Checks on daily and original timestamp sources.,18
+S5,S5/review_blocks.csv,Definitions of the 13 audited intervals.,13
+S5,S5/same_year_month_chemistry_reference.csv,Same-year and same-month chemistry comparisons.,4344
+S5,S5/source_rows_outside_study_or_invalid_time.csv,Source rows outside the study period or with invalid timestamps.,33
+S5,S5/timestamp_low_and_flatline_runs.csv,Low values and repeated values in original timestamp records.,434
+S5,S5/timestamp_source_audit.csv,Original timestamp-level provenance and water-quality values.,7366
+S5,S5/site_exclusion_sensitivity.csv,Sensitivity of basin-wide summaries to excluding Jiagaiqiao.,3
+S6,S6/coverage_threshold_event_eligibility.csv,Event metrics and membership flags for five original-DO coverage thresholds.,2548
+S6,S6/coverage_threshold_stratified_summary.csv,"Coverage-threshold summaries overall, by reach, by event type and by their intersection.",120
+S7,S7/coverage_population_event_membership.csv,Event metrics and membership in nested and mutually exclusive observation-coverage populations.,2548
+S7,S7/coverage_population_response_summary.csv,"Population response and provenance summaries overall, by reach, by event type and by their intersection.",144
+S7,S7/coverage_population_mixed_model_contrasts.csv,Eighteen prespecified contrasts for three responses across three nested populations.,18
+S7,S7/coverage_population_mixed_model_diagnostics.csv,Fitting attempts and reliability diagnostics for the eighteen contrasts.,38
+S8,S8/daily_DO_observation_provenance.csv,"Daily raw, quality-controlled and completed DO, observation source, and event membership.",120516
+S8,S8/observation_only_dual_reference_sensitivity.csv,Paired-reference summaries for all eligible and common events across the three reference designs.,144
+S8,S8/event_observation_verification.csv,Event-level original observation support and the two reference ratios across designs.,2548
+S8,S8/seasonal_reference_provenance.csv,Original-observation and completed-series seasonal DO reference support by site.,264
+S9,S9/grouped_validation_metrics.csv,Model metrics from grouped holdouts using fixed hyperparameters.,15
+S9,S9/grouped_daily_predictions.csv,Observed and predicted daily DO for the grouped holdout.,5340
+S9,S9/site_event_group_assignments.csv,Site-event group assignment to training or holdout for each daily record.,8531
+TableS4_Q_Support,TableS4_Q_Support/S4_Gauge_Q_Summary.csv,"Discharge coverage, P95 and basic high-flow episode counts by hydrological gauge.",42
+TableS4_Q_Support,TableS4_Q_Support/S4_Daily_Q_Provenance.csv,"Original and completed daily discharge, flags, S0 P95 and basic episode identifiers.",76692
+TableS4_Q_Support,TableS4_Q_Support/S4_Basic_High_Flow_Episodes.csv,Basic high-flow episodes with observed and imputed discharge support and linked water-quality sites.,936
+TableS4_Q_Support,TableS4_Q_Support/Q_Unknown_Sample_Summary.csv,Original and unknown-discharge-screened event samples and responses reported in Table S4(e).,2
+TableS4_Q_Support,TableS4_Q_Support/Q_Unknown_Core_Contrasts.csv,"Prespecified adjusted contrasts, confidence intervals and P values after screening unknown discharge exposure, reported in Table S4(f).",6
+TableS22b_Hydro_Cluster,TableS22b_Hydro_Cluster/hydro_cluster_contrasts.csv,"Shared-gauge cluster contrasts, intervals and corresponding mixed-effects results.",6
+TableS22b_Hydro_Cluster,TableS22b_Hydro_Cluster/model_support_counts.csv,"Event, water-quality site and hydrological cluster counts by response, group and contrast.",36

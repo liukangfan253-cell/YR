@@ -1,0 +1,1047 @@
+"""Export Figure6a using every current V5 eligible slope."""
+from __future__ import annotations
+from pathlib import Path
+from io import BytesIO
+import argparse,hashlib,json,sys
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from matplotlib.cbook import boxplot_stats
+from matplotlib.ticker import MaxNLocator
+import numpy as np
+import pandas as pd
+
+ROOT=Path(__file__).resolve().parents[5]
+BASE = ROOT / 'V/Figure_V1/Figure6'
+SOURCE=ROOT/'Result/Post_event_eligibility/20261111_Analysis'
+TYPES=['Heatwave_Only','Flood_Only','Direct_Compound','H5F_Compound','F5H_Compound']
+LABELS=['Heatwave\nonly','High flow\nonly','DC','H5F','F5H']
+COLORS=['#B86749','#438DA5','#50846D','#786C9C','#B16B8B']
+EVENT_FILL_ALPHA=.8
+COHORTS=['All_eligible','Any_event_observation','Every_event_day_observed']
+COHORT_LABELS=['All eligible','Any event observation','Every event day observed']
+COMPARISONS=['F5H vs H5F','Compound vs Single']
+
+
+def check(condition,message):
+    if not condition:raise ValueError(message)
+
+
+def flag(series):
+    text=series.astype(str).str.lower()
+    check(text.isin(['true','false']).all(),'Invalid boolean field.')
+    return text.eq('true')
+
+
+def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def load_data(args):
+    paths={'selection':args.selection_csv,'original_slopes':args.slopes_csv,'eligibility':args.eligibility_csv,
+           'post_support':args.post_support_csv,'post_dates':args.post_dates_csv,
+           'full_contrasts':args.full_contrasts_csv,'restricted_contrasts':args.restricted_contrasts_csv}
+    for path in paths.values():
+        check(path.resolve().is_relative_to(ROOT.resolve()),'Figure6 accepts V5 project sources only.')
+    frames={name:pd.read_csv(path,encoding='utf-8-sig') for name,path in paths.items()}
+    data=frames['selection'];original=frames['original_slopes'].rename(columns={'WQS_name':'Site_ID'})
+    required=['Site_ID','Event_ID','Event_Type','Reach','Season','Compound_Group','Eligible','Recovery_Slope',
+              'Event_Observed_Days','Duration_Days','Post_All_Five_Observed','Post_Observed_Points']
+    check(set(required).issubset(data),'Missing V5 event selection fields.')
+    check(not data.duplicated(['Site_ID','Event_ID']).any() and not data[['Site_ID','Event_ID','Event_Type']].isna().any().any(),'Missing or duplicate event keys.')
+    check(data.Event_Type.isin(TYPES).all(),'Unexpected event type.')
+    eligible=flag(data.Eligible);slopes=data.loc[eligible].copy()
+    check(np.isfinite(slopes.Recovery_Slope).all(),'Invalid eligible slope; no records may be silently discarded.')
+    check(not original.duplicated(['Site_ID','Event_ID']).any(),'Duplicate original V5 slope keys.')
+    merged=slopes[['Site_ID','Event_ID','Recovery_Slope']].merge(original[['Site_ID','Event_ID','Recovery_Slope']],
+        on=['Site_ID','Event_ID'],how='outer',validate='one_to_one',suffixes=('_selection','_original'),indicator=True)
+    check(merged['_merge'].eq('both').all() and np.allclose(merged.Recovery_Slope_selection,merged.Recovery_Slope_original,rtol=0,atol=1e-12),'Selection slopes do not match original V5 slope CSV.')
+    check(flag(slopes.Post_All_Five_Observed).equals(slopes.Post_Observed_Points.eq(5)),'Five-date observed flag mismatch.')
+    post=frames['post_dates'];post=post.merge(slopes[['Site_ID','Event_ID']],on=['Site_ID','Event_ID'],how='inner',validate='many_to_one')
+    check(not post.duplicated(['Site_ID','Event_ID','Offset']).any(),'Duplicate required post-event dates.')
+    check(post.groupby(['Site_ID','Event_ID']).Offset.apply(lambda s:set(s)=={1,3,5,7,9}).all(),'Eligible event lacks the five required offsets.')
+    check(len(post)==len(slopes)*5 and flag(post.Before_Next_Event).all() and flag(post.In_Study).all() and flag(post.Daily_Record_Present).all() and np.isfinite(post.DO_Final).all(),'Invalid dates in an eligible slope window.')
+    eligibility=[];boxrows=[]
+    saved=frames['eligibility'];saved=saved[saved.Dimension=='Event_Type'].set_index('Level')
+    check(saved.index.is_unique and set(saved.index)==set(TYPES),'Invalid saved eligibility summary.')
+    for event_type in TYPES:
+        all_n=int(data.Event_Type.eq(event_type).sum());part=slopes[slopes.Event_Type.eq(event_type)];n=len(part)
+        check(n>1 and all_n>=n,'Invalid type counts for the slope distribution.')
+        row=saved.loc[event_type]
+        check(int(row.All_N)==all_n and int(row.Eligible_N)==n and int(row.Excluded_N)==all_n-n,'Eligibility counts disagree with saved V5 summary.')
+        eligibility.append(dict(Event_Type=event_type,All_N=all_n,Eligible_N=n,Excluded_N=all_n-n,Eligible_Pct=100*n/all_n))
+        stats=boxplot_stats(part.Recovery_Slope.to_numpy(),whis=1.5)[0]
+        boxrows.append(dict(Event_Type=event_type,N=n,Median=stats['med'],Q1=stats['q1'],Q3=stats['q3'],Whisker_low=stats['whislo'],Whisker_high=stats['whishi'],Flier_N=len(stats['fliers'])))
+    source_summary=frames['post_support'].copy();source_summary['Observed_flag']=flag(source_summary.Post_All_Five_Observed)
+    check(source_summary.Observed_flag.is_unique and len(source_summary)==2,'Expected the two post-date source groups.')
+    source_rows=[];observed=flag(slopes.Post_All_Five_Observed)
+    for value,label in [(True,'All five dates observed'),(False,'At least one imputed date')]:
+        group=slopes.loc[observed.eq(value)];n=len(group);positive=int(group.Recovery_Slope.gt(0).sum())
+        row=source_summary[source_summary.Observed_flag.eq(value)].iloc[0]
+        check(int(row.N)==n and int(row.Positive_N)==positive and np.isclose(row.Positive_Pct,100*positive/n),'Saved positive-slope summary mismatch.')
+        source_rows.append(dict(Source_group=label,N=n,Positive_N=positive,Positive_Pct=100*positive/n))
+    full=frames['full_contrasts'];full=full[full.Metric=='Recovery_Slope'].copy();full['Cohort']='All_eligible'
+    restricted=frames['restricted_contrasts'].copy()
+    check(restricted.Metric.eq('Recovery_Slope').all(),'Unexpected response in restricted model CSV.')
+    contrasts=pd.concat([full,restricted],ignore_index=True)
+    keys=pd.MultiIndex.from_frame(contrasts[['Cohort','Contrast']]);wanted=pd.MultiIndex.from_product([COHORTS,COMPARISONS])
+    check(keys.is_unique and set(keys)==set(wanted),'Expected six V5 slope contrasts.')
+    contrasts=contrasts.set_index(['Cohort','Contrast']).loc[wanted].reset_index()
+    check(contrasts.Fit_Status.eq('Reliable').all() and contrasts.Effect_Type.eq('Slope_difference').all(),'Unreliable or invalid saved contrast.')
+    numbers=contrasts[['Adjusted_Effect','CI_Lower','CI_Upper']].to_numpy(dtype=float)
+    check(np.isfinite(numbers).all() and (contrasts.CI_Lower<=contrasts.Adjusted_Effect).all() and (contrasts.Adjusted_Effect<=contrasts.CI_Upper).all(),'Invalid saved contrast/CI.')
+    masks={'All_eligible':pd.Series(True,index=slopes.index),'Any_event_observation':slopes.Event_Observed_Days.gt(0),
+           'Every_event_day_observed':slopes.Event_Observed_Days.eq(slopes.Duration_Days)}
+    for row in contrasts.itertuples():
+        subset=slopes[masks[row.Cohort]]
+        check(row.Model_N==len(subset) and row.Model_Sites==subset.Site_ID.nunique(),'Contrast cohort mismatch.')
+        for prefix in ['Target','Reference']:
+            name=getattr(row,prefix+'_Group');part=subset[subset.Event_Type.eq(name)] if name in TYPES else subset[subset.Compound_Group.eq(name)]
+            check(getattr(row,prefix+'_Group_N')==len(part) and getattr(row,prefix+'_Group_Sites')==part.Site_ID.nunique() and np.isclose(getattr(row,prefix+'_Group_Unadjusted_Mean'),part.Recovery_Slope.mean(),atol=1e-10,rtol=1e-8),'Model group support/response mismatch.')
+    sources={name:{'path':str(path.resolve()),'sha256':sha(path),'rows':len(frames[name])} for name,path in paths.items()}
+    counts={'all_events':len(data),'eligible_events':len(slopes),'excluded_events':len(data)-len(slopes),
+            'positive_slopes':int(slopes.Recovery_Slope.gt(0).sum()),'post_all_observed':int(observed.sum()),
+            'post_any_imputed':int((~observed).sum()),'cohort_N':{name:int(mask.sum()) for name,mask in masks.items()}}
+    return slopes,pd.DataFrame(eligibility),pd.DataFrame(source_rows),contrasts,pd.DataFrame(boxrows),sources,counts
+
+
+def style():
+    plt.rcParams.update({'font.family':'sans-serif','font.sans-serif':['Arial','DejaVu Sans'],
+        'font.size':8,'axes.labelsize':8,'axes.titlesize':9,'xtick.labelsize':6.8,'ytick.labelsize':7.5,
+        'axes.spines.top':False,'axes.spines.right':False,'axes.linewidth':.7,'legend.frameon':False,
+        'pdf.fonttype':42,'svg.fonttype':'none','savefig.facecolor':'white'})
+
+
+def draw_a(ax,slopes):
+    for i,(event_type,color) in enumerate(zip(TYPES,COLORS)):
+        group=slopes[slopes.Event_Type.eq(event_type)];values=group.Recovery_Slope.to_numpy()
+        ax.boxplot(values,positions=[i-.025],widths=.14,whis=1.5,showfliers=False,patch_artist=True,
+            boxprops={'facecolor':color,'edgecolor':'#243238','linewidth':.6,'alpha':EVENT_FILL_ALPHA},
+            medianprops={'color':'black','linewidth':.8},whiskerprops={'color':'#243238','linewidth':.6},capprops={'linewidth':.6})
+        violin=ax.violinplot(values,positions=[i+.11],widths=.58,showmeans=False,showmedians=False,showextrema=False,bw_method='scott',points=150)
+        for body in violin['bodies']:
+            vertices=body.get_paths()[0].vertices;vertices[:,0]=np.maximum(vertices[:,0],i+.11)
+            body.set_facecolor(color);body.set_edgecolor(color);body.set_alpha(.45);body.set_linewidth(.5);body.set_rasterized(True)
+        # Only horizontal placement uses hashes; every observed slope is retained.
+        jitter=np.asarray([int(hashlib.sha256(f'{row.Site_ID}:{row.Event_ID}'.encode()).hexdigest()[:8],16)/0xffffffff for row in group.itertuples()])
+        ax.scatter(i-.33+.18*jitter,values,s=3.5,color=color,alpha=.5,linewidths=0,rasterized=True,zorder=3)
+        ax.text(i,.98,f'n={len(values)}',transform=ax.get_xaxis_transform(),ha='center',va='top',fontsize=6.3)
+    span=float(slopes.Recovery_Slope.max()-slopes.Recovery_Slope.min())
+    ax.axhline(0,color='#869196',linestyle='--',linewidth=.7,zorder=0)
+    ax.set(xticks=np.arange(5),xticklabels=LABELS,xlim=(-.55,4.55),
+        ylim=(slopes.Recovery_Slope.min()-span*.07,slopes.Recovery_Slope.max()+span*.13),
+        ylabel='Early DO slope\n(mg L$^{-1}$ d$^{-1}$)',title='Early post-event slopes')
+    ax.tick_params(direction='out',length=3)
+
+
+def draw_b(ax,table):
+    x=np.arange(len(table));values=table.Eligible_Pct.to_numpy()
+    ax.bar(x,values,width=.62,color=COLORS,alpha=EVENT_FILL_ALPHA)
+    ax.bar(x,100-values,bottom=values,width=.62,color='#E9EDF0')
+    for position,row in zip(x,table.itertuples()):
+        ax.text(position,row.Eligible_Pct+2.5,f'{row.Eligible_Pct:.1f}%',ha='center',va='bottom',fontsize=6.5)
+        ax.text(position,100.8,f'{row.Eligible_N}/{row.All_N}',ha='center',va='bottom',fontsize=6.3)
+    ax.set(xticks=x,xticklabels=LABELS,ylim=(0,114),ylabel='Event windows (%)',title='Slope-window eligibility')
+    ax.set_yticks([0,25,50,75,100]);ax.tick_params(direction='out',length=3)
+
+
+def draw_c(ax,table,counts):
+    x=np.arange(len(table));values=table.Positive_Pct
+    ax.bar(x,values,width=.55,color=['#447F9A','#C87953'])
+    for position,row in zip(x,table.itertuples()):
+        ax.text(position,row.Positive_Pct+2,f'{row.Positive_N}/{row.N}\n{row.Positive_Pct:.2f}%',ha='center',va='bottom',fontsize=7)
+    ax.set(xticks=x,xticklabels=['All five dates\nobserved','At least one\nimputed date'],ylim=(0,min(112,values.max()+24)),
+        ylabel='Positive slopes (%)',title='Positive slopes by\npost-event source')
+    ax.text(.5,.98,f"All eligible: {counts['positive_slopes']}/{counts['eligible_events']}",transform=ax.transAxes,ha='center',va='top',fontsize=6.5)
+    ax.tick_params(direction='out',length=3);ax.tick_params(axis='x',labelsize=7)
+
+
+def draw_d(ax,contrasts):
+    positions=np.asarray([1.4,0])
+    for cohort,label,color,marker,offset in zip(COHORTS,COHORT_LABELS,['#447F9A','#B86749','#50846D'],['o','s','^'],[.24,0,-.24]):
+        part=contrasts[contrasts.Cohort.eq(cohort)].set_index('Contrast').loc[COMPARISONS]
+        for y,row in zip(positions+offset,part.itertuples()):
+            ax.errorbar(row.Adjusted_Effect,y,xerr=[[row.Adjusted_Effect-row.CI_Lower],[row.CI_Upper-row.Adjusted_Effect]],fmt=marker,color=color,markersize=4,elinewidth=.9,capsize=2)
+    handles=[Line2D([],[],marker=marker,linestyle='none',color=color,markersize=4,
+        label=f'{label} (n={int(contrasts.loc[contrasts.Cohort.eq(cohort),"Model_N"].iloc[0])})') for cohort,label,color,marker in zip(COHORTS,COHORT_LABELS,['#447F9A','#B86749','#50846D'],['o','s','^'])]
+    lower=min(float(contrasts.CI_Lower.min()),0);upper=max(float(contrasts.CI_Upper.max()),0);pad=(upper-lower)*.10
+    # Restrict the null reference to the data rows, below the legend region.
+    ax.vlines(0,positions.min()-.55,positions.max()+.50,color='#869196',linestyle='--',linewidth=.7,zorder=0)
+    ax.set(yticks=positions,yticklabels=['F5H - H5F','Compound - single'],ylim=(-.6,2.7),xlim=(lower-pad,upper+pad),
+        xlabel='Slope difference\n(mg L$^{-1}$ d$^{-1}$)',title='Adjusted slope contrasts')
+    ax.legend(handles=handles,loc='upper left',fontsize=6.3,handletextpad=.35,borderaxespad=.2,labelspacing=.45)
+    ax.tick_params(axis='y',length=0,pad=5,labelsize=6.8);ax.tick_params(axis='x',direction='out',length=3)
+    ax.xaxis.set_major_locator(MaxNLocator(4))
+
+
+def run(panel):
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--selection-csv',type=Path,default=SOURCE/'event_selection_and_intensity.csv')
+    parser.add_argument('--slopes-csv',type=Path,default=ROOT/'Result/Recovery/Overall/FINAL_Recovery_All_Events_Combined.csv')
+    parser.add_argument('--eligibility-csv',type=Path,default=SOURCE/'categorical_comparisons.csv')
+    parser.add_argument('--post-support-csv',type=Path,default=SOURCE/'eligible_slope_by_post_observation_support.csv')
+    parser.add_argument('--post-dates-csv',type=Path,default=SOURCE/'required_post_dates.csv')
+    parser.add_argument('--full-contrasts-csv',type=Path,default=ROOT/'Result/Statistical_comparisons/Core_Contrasts.csv')
+    parser.add_argument('--restricted-contrasts-csv',type=Path,default=ROOT/'Result/Post_event_eligibility/20261111_Analysis/observation_restricted_slope_contrasts.csv')
+    parser.add_argument('--output-dir',type=Path)
+    args=parser.parse_args();slopes,eligibility,post,contrasts,boxes,sources,counts=load_data(args)
+    style();drawers={'a':lambda ax:draw_a(ax,slopes),'b':lambda ax:draw_b(ax,eligibility),
+        'c':lambda ax:draw_c(ax,post,counts),'d':lambda ax:draw_d(ax,contrasts)}
+    dimensions=[105,88] if panel=='d' else [89,88]
+    width,height=dimensions[0]/25.4,dimensions[1]/25.4
+    fig,ax=plt.subplots(figsize=(width,height))
+    fig.subplots_adjust(left=.36 if panel=='d' else .21,right=.97,bottom=.23,top=.85)
+    drawers[panel](ax);output=args.output_dir or BASE/panel/'Images'
+    stem={'a':'Figure6a_Early_slope_distribution','b':'Figure6b_Window_eligibility','c':'Figure6c_Post_event_source_support','d':'Figure6d_Adjusted_slope_contrasts'}[panel]
+    output.mkdir(parents=True,exist_ok=True);qa=output.parent/'QA';qa.mkdir(parents=True,exist_ok=True)
+    fig.canvas.draw()
+    require_matplotlib_panel_alignment(fig,json_out=qa/f'{stem}.alignment.json',overlay_svg=qa/f'{stem}.alignment.svg',
+        tolerance_pt=1.5,gutter_tolerance_pt=1.5,strict=True)
+    fig.savefig(output/f'{stem}.pdf',dpi=600);fig.savefig(output/f'{stem}.svg',dpi=600);fig.savefig(output/f'{stem}.png',dpi=300)
+    with BytesIO() as buffer:
+        fig.savefig(buffer,format='tiff',dpi=600,pil_kwargs={'compression':'tiff_lzw'})
+        (output/f'{stem}.tiff').write_bytes(buffer.getbuffer())
+    plt.close(fig)
+    for letter,frame in [('a',slopes),('b',eligibility),('c',post),('d',contrasts)]:
+        if panel==letter:frame.to_csv(output/f'{stem}_{letter}_source.csv',index=False,encoding='utf-8-sig')
+    if panel=='a':boxes.to_csv(output/f'{stem}_box_summary.csv',index=False,encoding='utf-8-sig')
+    for source in sources.values():check(sha(source['path'])==source['sha256'],'Input CSV changed during export.')
+    metadata={'sources':sources,'data_version':'V5 only','counts':counts,'dimensions_mm':dimensions,
+        'statistics':'a: all values/half violin/median/IQR/1.5IQR whiskers; b/c descriptive counts; d saved unadjusted 95% Wald CI.',
+        'plotting_fits_models':False,'restricted_models':'Four prescribed V5 fixed-model fits updated separately in _DataSource; no legacy inputs.',
+        'source_definition':'c: post-event five-date coverage; d: event-period observation coverage; these are distinct populations.',
+        'crosschecks':'V5 slope/eligibility/five-date source records and model/group support all match.',
+        'interpretation':'Early linear change, not recovery time or return to baseline; no causal imputation inference.'}
+    (qa/f'{stem}.provenance.json').write_text(json.dumps(metadata,ensure_ascii=False,indent=2),encoding='utf-8')
+    print(output/f'{stem}.pdf')
+
+
+# region Rendered panel-alignment audit (local copy for standalone execution)
+import html
+import math
+import os
+import re
+import tempfile
+from collections import defaultdict
+from collections.abc import Iterable
+from collections.abc import Mapping
+from collections.abc import Sequence
+from typing import Any
+
+
+SCHEMA_VERSION = 1
+DEFAULT_TOLERANCE_PT = 1.5
+DEFAULT_GUTTER_TOLERANCE_PT = 1.5
+
+
+class PanelAlignmentError(RuntimeError):
+    """Raised when a required in-memory alignment gate does not pass."""
+
+
+def _atomic_write_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(content)
+        temporary.replace(path)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def _bbox(value: Any) -> tuple[float, float, float, float]:
+    if isinstance(value, Mapping):
+        values = [value.get(key) for key in ("left", "bottom", "right", "top")]
+    else:
+        values = list(value) if isinstance(value, Sequence) else []
+    if len(values) != 4:
+        raise ValueError("panel bbox_pt must contain left, bottom, right and top")
+    bbox = tuple(float(item) for item in values)
+    if not all(math.isfinite(item) for item in bbox):
+        raise ValueError("panel bbox_pt values must be finite")
+    if bbox[2] <= bbox[0] or bbox[3] <= bbox[1]:
+        raise ValueError("panel bbox_pt must have positive width and height")
+    return bbox
+
+
+def _group_rows(raw: Any, prefix: str) -> list[dict[str, Any]]:
+    groups: list[dict[str, Any]] = []
+    if raw is None:
+        return groups
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        raise ValueError(f"{prefix}_groups must be a list")
+    for index, item in enumerate(raw, 1):
+        if isinstance(item, Mapping):
+            panels = item.get("panels", [])
+            group_id = str(item.get("id") or f"{prefix}-{index}")
+        else:
+            panels = item
+            group_id = f"{prefix}-{index}"
+        if not isinstance(panels, Sequence) or isinstance(panels, (str, bytes)):
+            raise ValueError(f"{prefix} group {group_id} must list panel ids")
+        panel_ids = [str(panel) for panel in panels]
+        if len(panel_ids) < 2:
+            raise ValueError(f"{prefix} group {group_id} needs at least two panels")
+        if len(panel_ids) != len(set(panel_ids)):
+            raise ValueError(f"{prefix} group {group_id} repeats a panel id")
+        groups.append({"id": group_id, "panels": panel_ids})
+    return groups
+
+
+def _inferred_groups(panels: Sequence[dict[str, Any]], orientation: str) -> list[dict[str, Any]]:
+    grouped: dict[tuple[Any, ...], list[str]] = defaultdict(list)
+    for panel in panels:
+        if orientation == "row":
+            fields = (panel.get("grid_id"), panel.get("row_start"), panel.get("row_stop"))
+        else:
+            fields = (panel.get("grid_id"), panel.get("col_start"), panel.get("col_stop"))
+        if any(value is None for value in fields):
+            continue
+        grouped[fields].append(str(panel["id"]))
+    output: list[dict[str, Any]] = []
+    for index, (_key, panel_ids) in enumerate(grouped.items(), 1):
+        if len(panel_ids) >= 2:
+            output.append({"id": f"inferred-{orientation}-{index}", "panels": panel_ids})
+    return output
+
+
+def _inferred_boundary_groups(panels: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Infer shared grid boundaries across panels with unequal spans.
+
+    This covers layouts such as two stacked panels beside one panel that spans
+    both rows. Equal-span panels are handled by the ordinary row/column groups,
+    so boundary groups are emitted only when at least two different spans meet
+    at the same grid boundary.
+    """
+    specifications = (
+        ("top", "row_start", "row_start", "row_stop"),
+        ("bottom", "row_stop", "row_start", "row_stop"),
+        ("left", "col_start", "col_start", "col_stop"),
+        ("right", "col_stop", "col_start", "col_stop"),
+    )
+    output: list[dict[str, Any]] = []
+    for edge, boundary_field, span_start, span_stop in specifications:
+        grouped: dict[tuple[Any, Any], list[dict[str, Any]]] = defaultdict(list)
+        for panel in panels:
+            grid_id = panel.get("grid_id")
+            boundary = panel.get(boundary_field)
+            start = panel.get(span_start)
+            stop = panel.get(span_stop)
+            if any(value is None for value in (grid_id, boundary, start, stop)):
+                continue
+            grouped[(grid_id, boundary)].append(panel)
+        edge_index = 0
+        for (_grid_id, _boundary), members in grouped.items():
+            spans = {(panel.get(span_start), panel.get(span_stop)) for panel in members}
+            if len(members) < 2 or len(spans) < 2:
+                continue
+            edge_index += 1
+            output.append(
+                {
+                    "id": f"inferred-shared-{edge}-{edge_index}",
+                    "edge": edge,
+                    "panels": [str(panel["id"]) for panel in members],
+                }
+            )
+    return output
+
+
+def _validated_layout(manifest: Mapping[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
+    errors: list[str] = []
+    if manifest.get("schema_version") != SCHEMA_VERSION:
+        errors.append(f"schema_version must be {SCHEMA_VERSION}")
+
+    figure = manifest.get("figure")
+    if not isinstance(figure, Mapping):
+        errors.append("figure must be an object with width_pt and height_pt")
+        figure = {}
+    try:
+        width_pt = float(figure.get("width_pt"))
+        height_pt = float(figure.get("height_pt"))
+        if not math.isfinite(width_pt) or not math.isfinite(height_pt) or width_pt <= 0 or height_pt <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        errors.append("figure width_pt and height_pt must be positive finite numbers")
+        width_pt = height_pt = 0.0
+
+    raw_panels = manifest.get("panels")
+    panels: list[dict[str, Any]] = []
+    if not isinstance(raw_panels, Sequence) or isinstance(raw_panels, (str, bytes)):
+        errors.append("panels must be a list")
+        raw_panels = []
+    for index, raw_panel in enumerate(raw_panels, 1):
+        if not isinstance(raw_panel, Mapping):
+            errors.append(f"panel {index} must be an object")
+            continue
+        panel_id = str(raw_panel.get("id") or "").strip()
+        if not panel_id:
+            errors.append(f"panel {index} is missing id")
+            continue
+        try:
+            bbox = _bbox(raw_panel.get("bbox_pt"))
+        except (TypeError, ValueError) as exc:
+            errors.append(f"panel {panel_id}: {exc}")
+            continue
+        if bbox[0] < -0.01 or bbox[1] < -0.01 or bbox[2] > width_pt + 0.01 or bbox[3] > height_pt + 0.01:
+            errors.append(f"panel {panel_id} bbox_pt extends beyond the declared figure")
+        panel = dict(raw_panel)
+        panel["id"] = panel_id
+        panel["bbox_pt"] = list(bbox)
+        anchor = raw_panel.get("panel_label_anchor_pt")
+        if anchor is not None:
+            try:
+                anchor_values = [float(value) for value in anchor]
+                if len(anchor_values) != 2 or not all(math.isfinite(value) for value in anchor_values):
+                    raise ValueError
+                panel["panel_label_anchor_pt"] = anchor_values
+            except (TypeError, ValueError):
+                errors.append(f"panel {panel_id} has invalid panel_label_anchor_pt")
+        panels.append(panel)
+
+    panel_ids = [panel["id"] for panel in panels]
+    if len(panel_ids) != len(set(panel_ids)):
+        errors.append("panel ids must be unique")
+    if not panels:
+        errors.append("at least one panel rectangle is required")
+
+    try:
+        row_groups = _group_rows(manifest.get("row_groups"), "row")
+        column_groups = _group_rows(manifest.get("column_groups"), "column")
+    except ValueError as exc:
+        errors.append(str(exc))
+        row_groups = column_groups = []
+    if not row_groups:
+        row_groups = _inferred_groups(panels, "row")
+    if not column_groups:
+        column_groups = _inferred_groups(panels, "column")
+    boundary_groups = _inferred_boundary_groups(panels)
+
+    known_ids = set(panel_ids)
+    for group in [*row_groups, *column_groups]:
+        missing = [panel for panel in group["panels"] if panel not in known_ids]
+        if missing:
+            errors.append(f"group {group['id']} references unknown panels: {', '.join(missing)}")
+
+    exemptions: list[dict[str, Any]] = []
+    raw_exemptions = manifest.get("exemptions", [])
+    if not isinstance(raw_exemptions, Sequence) or isinstance(raw_exemptions, (str, bytes)):
+        errors.append("exemptions must be a list")
+        raw_exemptions = []
+    for index, exemption in enumerate(raw_exemptions, 1):
+        if not isinstance(exemption, Mapping):
+            errors.append(f"exemption {index} must be an object")
+            continue
+        exemption_panels = exemption.get("panels", [])
+        checks = exemption.get("checks", [])
+        reason = str(exemption.get("reason") or "").strip()
+        if isinstance(exemption_panels, str):
+            exemption_panels = [exemption_panels]
+        if isinstance(checks, str):
+            checks = [checks]
+        if not exemption_panels or any(str(panel) not in known_ids for panel in exemption_panels):
+            errors.append(f"exemption {index} must reference known panels")
+        allowed_checks = {
+            "row",
+            "column",
+            "panel-width",
+            "horizontal-gutter",
+            "vertical-gutter",
+            "panel-label",
+            "all",
+        }
+        check_names = [str(check) for check in checks]
+        if not check_names or any(check not in allowed_checks for check in check_names):
+            errors.append(f"exemption {index} has invalid checks")
+        if not reason:
+            errors.append(f"exemption {index} needs a non-empty reason")
+        exemptions.append(
+            {"panels": [str(panel) for panel in exemption_panels], "checks": check_names, "reason": reason}
+        )
+
+    if errors:
+        return None, errors
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "backend": str(manifest.get("backend") or "unknown"),
+        "figure": {"width_pt": width_pt, "height_pt": height_pt},
+        "panels": panels,
+        "row_groups": row_groups,
+        "column_groups": column_groups,
+        "boundary_groups": boundary_groups,
+        "exemptions": exemptions,
+    }, []
+
+
+def _is_exempt(layout: Mapping[str, Any], panel_id: str, check: str) -> bool:
+    for exemption in layout.get("exemptions", []):
+        if panel_id in exemption["panels"] and (check in exemption["checks"] or "all" in exemption["checks"]):
+            return True
+    return False
+
+
+def _metric_spread(values: Mapping[str, float]) -> float:
+    return max(values.values()) - min(values.values()) if values else 0.0
+
+
+def _finding(
+    kind: str,
+    group: Mapping[str, Any],
+    panels: Sequence[str],
+    tolerance_pt: float,
+    metrics: Mapping[str, Mapping[str, float]],
+    message: str,
+    severity: str = "FAIL",
+) -> dict[str, Any]:
+    return {
+        "severity": severity,
+        "kind": kind,
+        "group": group["id"],
+        "panels": list(panels),
+        "message": message,
+        "tolerance_pt": tolerance_pt,
+        "metric_spreads_pt": {
+            metric: round(_metric_spread(values), 6) for metric, values in metrics.items()
+        },
+        "values_pt": {
+            metric: {panel: round(value, 6) for panel, value in values.items()}
+            for metric, values in metrics.items()
+        },
+    }
+
+
+def audit_layout_manifest(
+    manifest: Mapping[str, Any],
+    *,
+    tolerance_pt: float = DEFAULT_TOLERANCE_PT,
+    gutter_tolerance_pt: float = DEFAULT_GUTTER_TOLERANCE_PT,
+    require_panel_labels: bool = False,
+) -> dict[str, Any]:
+    """Audit a backend-neutral panel-layout manifest."""
+    if tolerance_pt < 0 or gutter_tolerance_pt < 0:
+        raise ValueError("alignment tolerances must be non-negative")
+    layout, errors = _validated_layout(manifest)
+    if layout is None:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "auditable": False,
+            "verdict": "NOT AUDITABLE",
+            "summary": {"fail": 0, "warn": 0, "comparisons": 0, "exemptions": 0},
+            "errors": errors,
+            "findings": [],
+        }
+
+    if len(layout["panels"]) == 1:
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "applicable": False,
+            "auditable": False,
+            "verdict": "NOT APPLICABLE",
+            "backend": layout["backend"],
+            "summary": {"fail": 0, "warn": 0, "comparisons": 0, "exemptions": 0},
+            "tolerances": {
+                "alignment_pt": tolerance_pt,
+                "gutter_pt": gutter_tolerance_pt,
+            },
+            "errors": [],
+            "findings": [],
+            "layout": layout,
+        }
+
+    panel_map = {panel["id"]: panel for panel in layout["panels"]}
+    findings: list[dict[str, Any]] = []
+    comparisons = 0
+
+    for orientation, group_key, check_name in (
+        ("row", "row_groups", "row"),
+        ("column", "column_groups", "column"),
+    ):
+        for group in layout[group_key]:
+            group_panel_ids = list(group["panels"])
+            panel_ids = [
+                panel_id for panel_id in group_panel_ids if not _is_exempt(layout, panel_id, check_name)
+            ]
+            if len(panel_ids) < 2:
+                continue
+            comparisons += 1
+            boxes = {panel_id: _bbox(panel_map[panel_id]["bbox_pt"]) for panel_id in panel_ids}
+            if orientation == "row":
+                metrics = {
+                    "top": {panel: box[3] for panel, box in boxes.items()},
+                    "bottom": {panel: box[1] for panel, box in boxes.items()},
+                    "height": {panel: box[3] - box[1] for panel, box in boxes.items()},
+                }
+                kind = "row-axes-misalignment"
+                message = "Panels intended for one row do not share top/bottom edges and height"
+            else:
+                metrics = {
+                    "left": {panel: box[0] for panel, box in boxes.items()},
+                    "right": {panel: box[2] for panel, box in boxes.items()},
+                    "width": {panel: box[2] - box[0] for panel, box in boxes.items()},
+                }
+                kind = "column-axes-misalignment"
+                message = "Panels intended for one column do not share left/right edges and width"
+            if max(_metric_spread(values) for values in metrics.values()) > tolerance_pt:
+                findings.append(_finding(kind, group, panel_ids, tolerance_pt, metrics, message))
+
+            if orientation == "row" and len(group_panel_ids) >= 3:
+                width_candidates = [
+                    panel_id
+                    for panel_id in group_panel_ids
+                    if not _is_exempt(layout, panel_id, "row")
+                    and not _is_exempt(layout, panel_id, "panel-width")
+                ]
+                by_column_span: dict[Any, list[str]] = defaultdict(list)
+                for panel_id in width_candidates:
+                    panel = panel_map[panel_id]
+                    try:
+                        column_span = float(panel.get("col_stop")) - float(panel.get("col_start"))
+                        if not math.isfinite(column_span) or column_span <= 0:
+                            raise ValueError
+                        span_key: Any = round(column_span, 9)
+                    except (TypeError, ValueError):
+                        span_key = "unspecified"
+                    by_column_span[span_key].append(panel_id)
+                for width_index, width_ids in enumerate(by_column_span.values(), 1):
+                    if len(width_ids) < 2:
+                        continue
+                    comparisons += 1
+                    width_metrics = {
+                        "width": {
+                            panel_id: _bbox(panel_map[panel_id]["bbox_pt"])[2]
+                            - _bbox(panel_map[panel_id]["bbox_pt"])[0]
+                            for panel_id in width_ids
+                        }
+                    }
+                    if _metric_spread(width_metrics["width"]) > tolerance_pt:
+                        findings.append(
+                            _finding(
+                                "horizontal-panel-width-misalignment",
+                                {"id": f"{group['id']}-equal-span-{width_index}"},
+                                width_ids,
+                                tolerance_pt,
+                                width_metrics,
+                                "Three-or-more-panel row contains unequal final plot-area widths for equal grid spans",
+                            )
+                        )
+
+            anchors = {
+                panel_id: panel_map[panel_id].get("panel_label_anchor_pt") for panel_id in panel_ids
+            }
+            present_anchors = {panel: anchor for panel, anchor in anchors.items() if anchor is not None}
+            missing_labels = [panel for panel, anchor in anchors.items() if anchor is None]
+            if require_panel_labels and missing_labels:
+                findings.append(
+                    {
+                        "severity": "WARN",
+                        "kind": "panel-label-not-auditable",
+                        "group": group["id"],
+                        "panels": missing_labels,
+                        "message": "Comparable panels are missing detectable top-left panel-label anchors",
+                    }
+                )
+            if len(present_anchors) >= 2:
+                label_check = "panel-label"
+                label_ids = [
+                    panel for panel in panel_ids if panel in present_anchors and not _is_exempt(layout, panel, label_check)
+                ]
+                if len(label_ids) >= 2:
+                    coordinate = 1 if orientation == "row" else 0
+                    metric_name = "label-y" if orientation == "row" else "label-x"
+                    metrics = {
+                        metric_name: {panel: float(present_anchors[panel][coordinate]) for panel in label_ids}
+                    }
+                    if _metric_spread(metrics[metric_name]) > tolerance_pt:
+                        findings.append(
+                            _finding(
+                                f"{orientation}-panel-label-misalignment",
+                                group,
+                                label_ids,
+                                tolerance_pt,
+                                metrics,
+                                "Panel-label anchors are not aligned within their comparable group",
+                            )
+                        )
+
+            gutter_check = "horizontal-gutter" if orientation == "row" else "vertical-gutter"
+            gutter_ids = [panel for panel in panel_ids if not _is_exempt(layout, panel, gutter_check)]
+            if len(gutter_ids) >= 2:
+                if orientation == "row":
+                    ordered = sorted(gutter_ids, key=lambda panel: boxes[panel][0])
+                    gaps = {
+                        f"{first}->{second}": boxes[second][0] - boxes[first][2]
+                        for first, second in zip(ordered, ordered[1:])
+                    }
+                else:
+                    ordered = sorted(gutter_ids, key=lambda panel: boxes[panel][3], reverse=True)
+                    gaps = {
+                        f"{first}->{second}": boxes[first][1] - boxes[second][3]
+                        for first, second in zip(ordered, ordered[1:])
+                    }
+                if gaps and min(gaps.values()) < -tolerance_pt:
+                    findings.append(
+                        _finding(
+                            "panel-axes-overlap",
+                            group,
+                            gutter_ids,
+                            tolerance_pt,
+                            {"gutter": gaps},
+                            "Panel plot-area rectangles overlap",
+                        )
+                    )
+                elif len(gaps) >= 2 and _metric_spread(gaps) > gutter_tolerance_pt:
+                    findings.append(
+                        _finding(
+                            f"{gutter_check}-misalignment",
+                            group,
+                            gutter_ids,
+                            gutter_tolerance_pt,
+                            {"gutter": gaps},
+                            "Comparable inter-panel gutters are not uniform",
+                        )
+                    )
+
+    edge_coordinates = {"left": 0, "bottom": 1, "right": 2, "top": 3}
+    for group in layout["boundary_groups"]:
+        edge = str(group["edge"])
+        check_name = "row" if edge in {"top", "bottom"} else "column"
+        panel_ids = [
+            panel_id
+            for panel_id in group["panels"]
+            if not _is_exempt(layout, panel_id, check_name)
+        ]
+        if len(panel_ids) < 2:
+            continue
+        comparisons += 1
+        coordinate = edge_coordinates[edge]
+        metrics = {
+            edge: {
+                panel_id: _bbox(panel_map[panel_id]["bbox_pt"])[coordinate]
+                for panel_id in panel_ids
+            }
+        }
+        if _metric_spread(metrics[edge]) > tolerance_pt:
+            findings.append(
+                _finding(
+                    f"shared-{edge}-edge-misalignment",
+                    group,
+                    panel_ids,
+                    tolerance_pt,
+                    metrics,
+                    f"Panels meeting the same grid {edge} boundary are not aligned",
+                )
+            )
+
+        if edge not in {"top", "left"}:
+            continue
+        anchors = {
+            panel_id: panel_map[panel_id].get("panel_label_anchor_pt")
+            for panel_id in panel_ids
+        }
+        missing_labels = [panel_id for panel_id, anchor in anchors.items() if anchor is None]
+        if require_panel_labels and missing_labels:
+            findings.append(
+                {
+                    "severity": "WARN",
+                    "kind": "panel-label-not-auditable",
+                    "group": group["id"],
+                    "panels": missing_labels,
+                    "message": "Comparable panels are missing detectable top-left panel-label anchors",
+                }
+            )
+        label_ids = [
+            panel_id
+            for panel_id, anchor in anchors.items()
+            if anchor is not None and not _is_exempt(layout, panel_id, "panel-label")
+        ]
+        if len(label_ids) < 2:
+            continue
+        label_coordinate = 1 if edge == "top" else 0
+        metric_name = "label-y" if edge == "top" else "label-x"
+        label_metrics = {
+            metric_name: {
+                panel_id: float(anchors[panel_id][label_coordinate])
+                for panel_id in label_ids
+            }
+        }
+        if _metric_spread(label_metrics[metric_name]) > tolerance_pt:
+            findings.append(
+                _finding(
+                    f"shared-{edge}-panel-label-misalignment",
+                    group,
+                    label_ids,
+                    tolerance_pt,
+                    label_metrics,
+                    "Panel-label anchors are not aligned at the shared grid boundary",
+                )
+            )
+    fail_count = sum(finding["severity"] == "FAIL" for finding in findings)
+    warn_count = sum(finding["severity"] == "WARN" for finding in findings)
+    auditable = comparisons > 0
+    verdict = "FIX BEFORE DELIVERY" if fail_count else "REVIEW REQUIRED" if warn_count else "PASS"
+    if not auditable:
+        verdict = "NOT AUDITABLE"
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "applicable": True,
+        "auditable": auditable,
+        "verdict": verdict,
+        "backend": layout["backend"],
+        "summary": {
+            "fail": fail_count,
+            "warn": warn_count,
+            "comparisons": comparisons,
+            "exemptions": len(layout["exemptions"]),
+        },
+        "tolerances": {
+            "alignment_pt": tolerance_pt,
+            "gutter_pt": gutter_tolerance_pt,
+        },
+        "layout": layout,
+        "findings": findings,
+        **(
+            {"errors": ["No comparable row, column or shared-boundary groups were declared or inferred"]}
+            if not auditable
+            else {}
+        ),
+    }
+
+
+def exit_code(report: Mapping[str, Any], strict: bool = False) -> int:
+    if report.get("verdict") == "NOT APPLICABLE":
+        return 0
+    if not report.get("auditable") or report.get("verdict") == "NOT AUDITABLE":
+        return 2
+    if int(report.get("summary", {}).get("fail", 0)):
+        return 1
+    if strict and int(report.get("summary", {}).get("warn", 0)):
+        return 1
+    return 0
+
+
+def render_text(report: Mapping[str, Any], strict: bool = False) -> str:
+    summary = report.get("summary", {})
+    lines = [
+        f"Panel alignment: {report.get('verdict', 'UNKNOWN')}",
+        f"  comparisons: {summary.get('comparisons', 0)}",
+        f"  fail: {summary.get('fail', 0)}",
+        f"  warn: {summary.get('warn', 0)}",
+        f"  exemptions: {summary.get('exemptions', 0)}",
+    ]
+    for error in report.get("errors", []):
+        lines.append(f"  ERROR: {error}")
+    for finding in report.get("findings", []):
+        lines.append(
+            f"  {finding['severity']} {finding['kind']} [{finding.get('group', 'n/a')}]: "
+            f"{finding['message']} ({', '.join(finding.get('panels', []))})"
+        )
+    if strict and summary.get("warn", 0):
+        lines.append("  strict mode: WARN findings block delivery")
+    return "\n".join(lines)
+
+
+def write_json_report(report: Mapping[str, Any], path: str | Path) -> None:
+    _atomic_write_text(Path(path), json.dumps(report, indent=2, ensure_ascii=False) + "\n")
+
+
+def write_overlay_svg(report: Mapping[str, Any], path: str | Path) -> None:
+    layout = report.get("layout")
+    if not isinstance(layout, Mapping):
+        raise ValueError("an auditable layout is required for the diagnostic SVG")
+    width = float(layout["figure"]["width_pt"])
+    height = float(layout["figure"]["height_pt"])
+    failed_panels = {
+        panel for finding in report.get("findings", []) if finding.get("severity") == "FAIL"
+        for panel in finding.get("panels", [])
+    }
+    rows = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}pt" height="{height}pt" viewBox="0 0 {width} {height}">',
+        '<rect width="100%" height="100%" fill="white"/>',
+    ]
+    for panel in layout["panels"]:
+        left, bottom, right, top = _bbox(panel["bbox_pt"])
+        y = height - top
+        color = "#d7191c" if panel["id"] in failed_panels else "#2c7bb6"
+        rows.append(
+            f'<rect x="{left:.3f}" y="{y:.3f}" width="{right-left:.3f}" height="{top-bottom:.3f}" '
+            f'fill="none" stroke="{color}" stroke-width="1.2"/>'
+        )
+        rows.append(
+            f'<text x="{left+2:.3f}" y="{y+10:.3f}" font-family="Arial, sans-serif" font-size="8" '
+            f'fill="{color}">{html.escape(str(panel["id"]))}</text>'
+        )
+    rows.append(
+        f'<text x="4" y="{height-5:.3f}" font-family="Arial, sans-serif" font-size="7" fill="#333">'
+        f'{report.get("verdict", "UNKNOWN")}: {report.get("summary", {}).get("fail", 0)} fail, '
+        f'{report.get("summary", {}).get("warn", 0)} warn</text>'
+    )
+    rows.append("</svg>")
+    _atomic_write_text(Path(path), "\n".join(rows) + "\n")
+
+
+def _alphabetic_id(index: int) -> str:
+    output = ""
+    value = index + 1
+    while value:
+        value, remainder = divmod(value - 1, 26)
+        output = chr(ord("a") + remainder) + output
+    return output
+
+
+def _font_is_bold(weight: Any) -> bool:
+    if isinstance(weight, (int, float)):
+        return float(weight) >= 600
+    return str(weight).lower() in {"bold", "semibold", "demibold", "heavy", "black"}
+
+
+def _matplotlib_panel_label_anchor(ax: Any) -> tuple[str, list[float]] | None:
+    for artist in ax.texts:
+        label = artist.get_text().strip()
+        if not re.fullmatch(r"[a-z]", label) or not _font_is_bold(artist.get_fontweight()):
+            continue
+        display = artist.get_transform().transform(artist.get_position())
+        axes_xy = ax.transAxes.inverted().transform(display)
+        if not (-0.35 <= axes_xy[0] <= 0.2 and 0.8 <= axes_xy[1] <= 1.35):
+            continue
+        inches = ax.figure.dpi_scale_trans.inverted().transform(display)
+        return label, [float(inches[0] * 72), float(inches[1] * 72)]
+    return None
+
+
+def matplotlib_layout_manifest(
+    fig: Any,
+    *,
+    axes: Sequence[Any] | None = None,
+    panel_ids: Mapping[Any, str] | Sequence[str] | None = None,
+    row_groups: Sequence[Any] | None = None,
+    column_groups: Sequence[Any] | None = None,
+    exclude_axes: Iterable[Any] = (),
+    exemptions: Sequence[Mapping[str, Any]] = (),
+) -> dict[str, Any]:
+    """Measure final Matplotlib axes rectangles in physical points."""
+    fig.canvas.draw()
+    width_in, height_in = (float(value) for value in fig.get_size_inches())
+    width_pt, height_pt = width_in * 72, height_in * 72
+    excluded = {id(axis) for axis in exclude_axes}
+    candidates = list(axes) if axes is not None else list(fig.axes)
+    selected: list[Any] = []
+    seen_subplot_cells: set[tuple[int, int, int]] = set()
+    for axis in candidates:
+        if id(axis) in excluded or not axis.get_visible():
+            continue
+        axis_label = str(axis.get_label() or "")
+        if axis_label.startswith("<colorbar"):
+            continue
+        try:
+            subplot_spec = axis.get_subplotspec()
+        except AttributeError:
+            subplot_spec = None
+        if subplot_spec is not None and panel_ids is None:
+            subplot_key = (
+                id(subplot_spec.get_gridspec()),
+                int(subplot_spec.num1),
+                int(subplot_spec.num2),
+            )
+            if subplot_key in seen_subplot_cells:
+                continue
+            seen_subplot_cells.add(subplot_key)
+        selected.append(axis)
+
+    if isinstance(panel_ids, Mapping):
+        ids = [str(panel_ids.get(axis) or "") for axis in selected]
+    elif panel_ids is not None:
+        ids = [str(value) for value in panel_ids]
+        if len(ids) != len(selected):
+            raise ValueError("panel_ids length must match the selected Matplotlib axes")
+    else:
+        ids = []
+        for index, axis in enumerate(selected):
+            candidate = str(axis.get_gid() or axis.get_label() or "").strip()
+            ids.append(candidate if candidate and not candidate.startswith("<") else _alphabetic_id(index))
+
+    grid_ids: dict[int, str] = {}
+    panels: list[dict[str, Any]] = []
+    for axis, panel_id in zip(selected, ids):
+        position = axis.get_position(original=False)
+        panel: dict[str, Any] = {
+            "id": panel_id,
+            "bbox_pt": [
+                float(position.x0 * width_pt),
+                float(position.y0 * height_pt),
+                float(position.x1 * width_pt),
+                float(position.y1 * height_pt),
+            ],
+        }
+        try:
+            subplot_spec = axis.get_subplotspec()
+        except AttributeError:
+            subplot_spec = None
+        if subplot_spec is not None:
+            grid_spec = subplot_spec.get_gridspec()
+            grid_key = id(grid_spec)
+            if grid_key not in grid_ids:
+                grid_ids[grid_key] = f"matplotlib-grid-{len(grid_ids) + 1}"
+            panel.update(
+                {
+                    "grid_id": grid_ids[grid_key],
+                    "row_start": int(subplot_spec.rowspan.start),
+                    "row_stop": int(subplot_spec.rowspan.stop),
+                    "col_start": int(subplot_spec.colspan.start),
+                    "col_stop": int(subplot_spec.colspan.stop),
+                }
+            )
+        label_anchor = _matplotlib_panel_label_anchor(axis)
+        if label_anchor is not None:
+            panel["panel_label"] = label_anchor[0]
+            panel["panel_label_anchor_pt"] = label_anchor[1]
+        panels.append(panel)
+
+    manifest: dict[str, Any] = {
+        "schema_version": SCHEMA_VERSION,
+        "backend": "python-matplotlib",
+        "figure": {"width_pt": width_pt, "height_pt": height_pt},
+        "panels": panels,
+        "exemptions": [dict(exemption) for exemption in exemptions],
+    }
+    if row_groups is not None:
+        manifest["row_groups"] = list(row_groups)
+    if column_groups is not None:
+        manifest["column_groups"] = list(column_groups)
+    return manifest
+
+
+def require_matplotlib_panel_alignment(
+    fig: Any,
+    *,
+    json_out: str | Path | None = None,
+    overlay_svg: str | Path | None = None,
+    tolerance_pt: float = DEFAULT_TOLERANCE_PT,
+    gutter_tolerance_pt: float = DEFAULT_GUTTER_TOLERANCE_PT,
+    require_panel_labels: bool = False,
+    strict: bool = False,
+    **manifest_options: Any,
+) -> dict[str, Any]:
+    """Measure and block delivery when a Matplotlib multi-panel layout is misaligned."""
+    manifest = matplotlib_layout_manifest(fig, **manifest_options)
+    report = audit_layout_manifest(
+        manifest,
+        tolerance_pt=tolerance_pt,
+        gutter_tolerance_pt=gutter_tolerance_pt,
+        require_panel_labels=require_panel_labels,
+    )
+    if json_out is not None:
+        write_json_report(report, json_out)
+    if overlay_svg is not None and report.get("layout"):
+        write_overlay_svg(report, overlay_svg)
+    code = exit_code(report, strict=strict)
+    if code:
+        raise PanelAlignmentError(render_text(report, strict=strict))
+    return report
+# endregion
+
+
+if __name__ == '__main__':
+    run('a')

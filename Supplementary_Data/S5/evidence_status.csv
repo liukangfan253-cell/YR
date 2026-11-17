@@ -1,0 +1,6 @@
+﻿Evidence,Status,Detail
+Timestamp_to_daily_provenance,Verified_for_DO_and_8_original_water_quality_variables,All 1826 dates match original aggregation and QC rules
+Instrument_calibration_and_maintenance,Not_established_from_available_project_evidence,"No populated station-situation field; project filename search is bounded, no automatic instrument validity claim"
+Environmental_covariation,Descriptive_diagnostics_available,Original observations only; associations do not establish causal processes or sensor accuracy
+Assigned_hydrological_records,Context_only_Comment3_deferred,No rematching or representativeness validation performed
+Record_deletion,None,"Flags are review prompts, not automatic exclusion rules"

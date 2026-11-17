@@ -1,0 +1,17 @@
+﻿Context,Variable,Pairs,Spearman_Rho,Interpretation
+All_observed,WT,1301,-0.444786500153,Descriptive original-observation association; no independence-adjusted inference
+All_observed,pH,1301,0.440104534468,Descriptive original-observation association; no independence-adjusted inference
+All_observed,EC,1297,0.247946889476,Descriptive original-observation association; no independence-adjusted inference
+All_observed,Turb,1301,-0.0774863783458,Descriptive original-observation association; no independence-adjusted inference
+All_observed,CODMn,1258,-0.306154202173,Descriptive original-observation association; no independence-adjusted inference
+All_observed,NH3_N,1262,-0.341334490884,Descriptive original-observation association; no independence-adjusted inference
+All_observed,TP,1260,-0.383371830976,Descriptive original-observation association; no independence-adjusted inference
+All_observed,TN,1250,0.183495503627,Descriptive original-observation association; no independence-adjusted inference
+Event_observed,WT,169,0.111232523207,Descriptive original-observation association; no independence-adjusted inference
+Event_observed,pH,169,0.406818156393,Descriptive original-observation association; no independence-adjusted inference
+Event_observed,EC,169,0.219726164355,Descriptive original-observation association; no independence-adjusted inference
+Event_observed,Turb,169,0.115105414023,Descriptive original-observation association; no independence-adjusted inference
+Event_observed,CODMn,169,-0.38078621626,Descriptive original-observation association; no independence-adjusted inference
+Event_observed,NH3_N,169,-0.510724330808,Descriptive original-observation association; no independence-adjusted inference
+Event_observed,TP,169,-0.628737252167,Descriptive original-observation association; no independence-adjusted inference
+Event_observed,TN,167,-0.411370438233,Descriptive original-observation association; no independence-adjusted inference

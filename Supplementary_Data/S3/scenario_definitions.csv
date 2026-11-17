@@ -1,0 +1,9 @@
+﻿Scenario,Window,Minimum_Values,Reference_Source,Purpose,Calendar_Days
+Original_completed,W9_4,3,Completed,Original,6
+Observed_3,W9_4,3,Observed,Support,6
+Observed_4,W9_4,4,Observed,Support,6
+Observed_5,W9_4,5,Observed,Support,6
+Observed_6,W9_4,6,Observed,Support,6
+Short_7_4_obs3,W7_4,3,Observed,Window,4
+Long_14_4_obs6,W14_4,6,Observed,Window,11
+Long_14_4_obs3,W14_4,3,Observed,Window_support_control,11
