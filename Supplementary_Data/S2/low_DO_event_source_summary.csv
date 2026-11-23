@@ -1,0 +1,4 @@
+﻿Observation_Support,Event_N,Event_Mean_Below5_N,Event_Mean_Below3_N,Event_Mean_Below2_N,Any_Event_Day_Below2_N
+All_event_days_observed,1486,49,24,8,27
+Partly_observed,544,31,12,8,18
+Fully_reconstructed,518,31,13,11,11

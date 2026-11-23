@@ -1,0 +1,34 @@
+﻿Province,City,Basin,River,Station_Name,Longitude,Latitude,Monitoring_Time,Water_Temperature,pH,Dissolved_Oxygen,Electrical_Conductivity,Turbidity,Permanganate_Index,Ammonia_Nitrogen,Total_Organic_Carbon,Total_Phosphorus,Total_Nitrogen,Chlorophyll_a,Algal_Density,Water_Quality_Class,Station_Situation,Source_Row,Timestamp,In_Study
+,,,,,,,,(℃),(dimensionless),(mg/L),(μS/cm),(NTU),(mg/L),(mg/L),(mg/L),(mg/L),(mg/L),(mg/L),(cells/L),Class,Situation,2,,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/1 0:00,7.71,7.89,4.672,1544.63,17.201,6.441,0.071,,0.085,3.278,,,Ⅳ,,7369,2026-01-01 00:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/1 4:00,7.73,7.9,4.683,1544.93,15.809,6.441,0.071,,0.085,3.278,,,Ⅳ,,7370,2026-01-01 04:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/1 8:00,7.72,7.924,4.636,1544.55,17.21,6.253,0.075,,0.076,3.264,,,Ⅳ,,7371,2026-01-01 08:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/1 12:00,7.6,7.929,4.955,1547.39,17.672,6.085,0.083,,0.076,3.235,,,Ⅳ,,7372,2026-01-01 12:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/1 16:00,7.57,7.964,5.188,1548.3,13.906,6.291,0.081,,0.073,3.231,,,Ⅳ,,7373,2026-01-01 16:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/1 20:00,7.56,7.964,5.3,1548.08,14.892,6.377,0.073,,0.062,3.232,,,Ⅳ,,7374,2026-01-01 20:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/2 0:00,7.57,7.959,5.195,1550.75,15.353,6.32,0.075,,0.076,3.249,,,Ⅳ,,7375,2026-01-02 00:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/2 4:00,7.57,7.955,5.379,1553.4,14.813,6.32,0.075,,0.076,3.249,,,Ⅳ,,7376,2026-01-02 04:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/2 8:00,7.44,7.925,5.195,1556.21,14.777,6.629,0.075,,0.078,3.253,,,Ⅳ,,7377,2026-01-02 08:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/2 12:00,7.42,7.934,5.484,1558,13.244,6.696,0.079,,0.077,3.266,,,Ⅳ,,7378,2026-01-02 12:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/2 16:00,7.37,7.944,5.409,1558.18,12.388,6.796,0.08,,0.081,3.275,,,Ⅳ,,7379,2026-01-02 16:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/2 20:00,7.31,7.971,5.476,1555.3,17.567,6.439,0.068,,0.066,3.238,,,Ⅳ,,7380,2026-01-02 20:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/3 0:00,7.3,8.012,5.701,1558.54,13.058,7.151,0.092,,0.079,3.495,,,Ⅳ,,7381,2026-01-03 00:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/3 4:00,7.29,7.967,5.568,1567.88,16.77,7.151,0.092,,0.079,3.495,,,Ⅳ,,7382,2026-01-03 04:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/3 8:00,7.02,7.977,5.678,1570.15,12.687,7.153,0.088,,0.074,3.554,,,Ⅳ,,7383,2026-01-03 08:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/3 12:00,7.16,7.976,5.969,1564.31,14.316,7.22,0.088,,0.074,3.38,,,Ⅳ,,7384,2026-01-03 12:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/3 16:00,7.15,7.987,5.673,1566.88,12.818,7.049,0.075,,0.067,3.22,,,Ⅳ,,7385,2026-01-03 16:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/3 20:00,7.15,7.991,5.679,1567.05,13.211,6.733,0.082,,0.066,3.357,,,Ⅳ,,7386,2026-01-03 20:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/4 0:00,7.15,7.993,5.953,1573.19,12.904,6.639,0.064,,0.071,3.259,,,Ⅳ,,7387,2026-01-04 00:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/4 4:00,7.18,7.97,5.909,1572.32,13.443,6.639,0.064,,0.071,3.259,,,Ⅳ,,7388,2026-01-04 04:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/4 8:00,7.15,7.959,5.959,1568.12,13.934,6.621,0.061,,0.071,3.245,,,Ⅳ,,7389,2026-01-04 08:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/4 12:00,7.01,7.974,6.255,1573.22,13.601,6.838,0.061,,0.077,3.227,,,Ⅳ,,7390,2026-01-04 12:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/4 16:00,6.74,7.646,10.239,1579.2,12.557,7.087,0.062,,0.074,3.339,,,Ⅳ,,7391,2026-01-04 16:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/4 20:00,7.2,8.035,6.707,1566.97,12.274,7.087,0.055,,0.067,3.217,,,Ⅳ,,7392,2026-01-04 20:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/5 0:00,7.29,8.014,6.615,1565.21,14.815,7.087,0.042,,0.072,3.188,,,Ⅳ,,7393,2026-01-05 00:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/5 4:00,7.17,7.982,6.296,1568.37,12.68,7.087,0.042,,0.072,3.188,,,Ⅳ,,7394,2026-01-05 04:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/5 8:00,7.15,7.961,6.014,1569.89,12.797,7.087,0.043,,0.072,3.18,,,Ⅳ,,7395,2026-01-05 08:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/5 12:00,7.05,7.961,6.052,1564.14,14.385,7.087,0.043,,0.103,3.262,,,Ⅳ,,7396,2026-01-05 12:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/5 16:00,7.2,7.983,6.321,1555.02,12.149,7.728,0.041,,0.077,3.295,,,Ⅳ,,7397,2026-01-05 16:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/5 20:00,7.29,8,6.443,1556.69,11.899,7.03,0.03,,0.071,3.131,,,Ⅳ,,7398,2026-01-05 20:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/6 0:00,7.28,7.971,6.138,1554.52,10.861,6.902,0.028,,0.069,3.092,,,Ⅳ,,7399,2026-01-06 00:00:00,False
+Henan,Puyang,Yellow River Basin,Jindi River,Jiagaiqiao,115.9258,36.0256,2026/1/6 4:00,7.29,7.953,5.856,1555.43,14.303,6.902,0.028,,0.069,3.092,,,Ⅳ,,7400,2026-01-06 04:00:00,False
